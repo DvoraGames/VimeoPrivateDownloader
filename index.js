@@ -1,8 +1,11 @@
 const fs = require("fs");
 const url = require("url");
 const https = require("https");
+const { exec } = require('child_process');
 const log = (...args) => console.log("→", ...args);
 const list = require("./videojson.js");
+
+const path = require('path'); // Import the path module
 
 function loadVideo(num, cb) {
   let rawMasterUrl = new URL(list[num].url);
@@ -37,6 +40,8 @@ function loadVideo(num, cb) {
       );
     }
 
+    console.log()
+
     processFile(
       "video",
       videoBaseUrl,
@@ -60,6 +65,8 @@ function loadVideo(num, cb) {
                 cb(err);
               }
 
+              convertToMp4('./parts');
+
               cb(null, num + 1);
             }
           );
@@ -70,7 +77,7 @@ function loadVideo(num, cb) {
 }
 
 function processFile(type, baseUrl, initData, segments, filename, cb) {
-  const file = filename.replace(/[^\w.]/gi, '-');
+  const file = filename;
   const filePath = `./parts/${file}`;
   const downloadingFlag = `./parts/.${file}~`;
 
@@ -112,13 +119,17 @@ function combineSegments(type, i, segmentsUrl, output, filename, downloadingFlag
     if (fs.existsSync(downloadingFlag)) {
       fs.unlinkSync(downloadingFlag);
     }
-    log("🏁", ` ${filename} - ${type} done`);
+    log(
+      "🏁",
+      type === "video" ? "🎞️" : "🎧",
+      `download of ${filename} is done`
+    );
     return cb();
   }
 
   log(
     "📦",
-    type === "video" ? "📹" : "🎧",
+    type === "video" ? "🎞️" : "🎧",
     `Downloading ${type} segment ${i}/${segmentsUrl.length} of ${filename}`
   );
 
@@ -176,3 +187,29 @@ function initJs(n = 0) {
 }
 
 initJs();
+
+function convertToMp4(directory) {
+  fs.readdir(directory, (err, files) => {
+    if (err) {
+      console.error(err);
+      return;
+    }
+
+    files.forEach(file => {
+      if (path.extname(file) === '.m4v') {
+        const baseName = path.basename(file, '.m4v');
+        const audioFile = path.join(directory, `${baseName}.m4a`);
+        const videoFile = path.join(directory, file);
+        const outputFile = path.join('./output', `${baseName}.mp4`);
+        
+        exec(`ffmpeg -y -v quiet -i "${audioFile}" -i "${videoFile}" -c copy "${outputFile}"`, (error, stdout, stderr) => {
+          if (error) {
+            console.error(`exec error: ${error}`);
+            return;
+          }
+          log("🏁", `${outputFile} converted successfully`);
+        });
+      }
+    });
+  });
+}
