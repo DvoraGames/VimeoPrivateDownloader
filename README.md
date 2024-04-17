@@ -16,5 +16,5 @@ To download videos and convert them to .mp4 you have to:
 3.1. In some cases Vimeo sends you encrypted video data, that you can workaround by either removing 'query_string_ranges' query parameter and/or adding 'base64_init=1' to it. 
 4.  Fill in `url` and `name`(using as filename) fields in `videojson.js` file
 5.  Run: `node index.js` or `npm run start`
-6.  Wait for console output `"🏁", <filename.mp4> converted successfully`
+6.  Wait for console output `"🏁" <filename.mp4> converted successfully`
 7.  Go to output folder and your converted .mp4 files will be there.
