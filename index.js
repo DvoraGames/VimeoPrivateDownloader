@@ -7,8 +7,13 @@ const list = require("./videojson.js");
 
 const path = require('path'); // Import the path module
 
+// Function to replace \u0026 with &
+function decodeUrl(inputUrl) {
+  return inputUrl.replace(/\\u0026/g, '&');
+}
+
 function loadVideo(num, cb) {
-  let rawMasterUrl = new URL(list[num].url);
+  let rawMasterUrl = new URL(decodeUrl(list[num].url));
   let masterUrl = rawMasterUrl.toString();
 
   getJson(masterUrl, num, (err, json) => {
@@ -16,11 +21,24 @@ function loadVideo(num, cb) {
       return cb(err);
     }
 
-    const videoData = json.video
-      .sort((v1, v2) => v1.avg_bitrate - v2.avg_bitrate)
-      .pop();
+    // Filter videoData to include only 1920x1080 resolution or 1280x720 resolution
+    const fullHdVideos = json.video.filter(video => video.width === 1920 && video.height === 1080);
+    const hdVideos = json.video.filter(video => video.width === 1280 && video.height === 720);
 
-    let audioData = {}
+    let videoData;
+    if (fullHdVideos.length > 0) {
+      videoData = fullHdVideos
+        .sort((v1, v2) => v1.avg_bitrate - v2.avg_bitrate)
+        .pop();
+    } else if (hdVideos.length > 0) {
+      videoData = hdVideos
+        .sort((v1, v2) => v1.avg_bitrate - v2.avg_bitrate)
+        .pop();
+    } else {
+      return cb(new Error("No suitable video resolution found"));
+    }
+
+    let audioData = {};
     if (json.audio !== null) {
       audioData = json.audio
         .sort((a1, a2) => a1.avg_bitrate - a2.avg_bitrate)
@@ -40,14 +58,12 @@ function loadVideo(num, cb) {
       );
     }
 
-    console.log()
-
     processFile(
       "video",
       videoBaseUrl,
       videoData.init_segment,
       videoData.segments,
-      list[num].name + ".m4v",
+      (num + 1) + " - " + list[num].name + ".m4v",
       err => {
         if (err) {
           cb(err);
@@ -59,7 +75,7 @@ function loadVideo(num, cb) {
             audioBaseUrl,
             audioData.init_segment,
             audioData.segments,
-            list[num].name + ".m4a",
+            (num + 1) + " - " + list[num].name + ".m4a",
             err => {
               if (err) {
                 cb(err);
