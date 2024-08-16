@@ -3,9 +3,10 @@ const url = require("url");
 const https = require("https");
 const { exec } = require('child_process');
 const log = (...args) => console.log("→", ...args);
-const list = require("./videojson.js");
+const { startNum, delParts, list } = require("./videojson.js");
+const path = require('path');
 
-const path = require('path'); // Import the path module
+let counter = startNum;
 
 // Function to replace \u0026 with &
 function decodeUrl(inputUrl) {
@@ -26,6 +27,7 @@ function loadVideo(num, cb) {
     const hdVideos = json.video.filter(video => video.width === 1280 && video.height === 720);
 
     let videoData;
+
     if (fullHdVideos.length > 0) {
       videoData = fullHdVideos
         .sort((v1, v2) => v1.avg_bitrate - v2.avg_bitrate)
@@ -39,6 +41,7 @@ function loadVideo(num, cb) {
     }
 
     let audioData = {};
+    
     if (json.audio !== null) {
       audioData = json.audio
         .sort((a1, a2) => a1.avg_bitrate - a2.avg_bitrate)
@@ -57,13 +60,21 @@ function loadVideo(num, cb) {
         audioData.base_url
       );
     }
+    
+    let counterName = "";
+    if (counter == null) {
+      counterName = list[num].name
+    }
+    else{
+      counterName = counter + " - " + list[num].name
+    }
 
     processFile(
       "video",
       videoBaseUrl,
       videoData.init_segment,
       videoData.segments,
-      (num + 1) + " - " + list[num].name + ".m4v",
+      counterName + ".m4v",
       err => {
         if (err) {
           cb(err);
@@ -75,14 +86,18 @@ function loadVideo(num, cb) {
             audioBaseUrl,
             audioData.init_segment,
             audioData.segments,
-            (num + 1) + " - " + list[num].name + ".m4a",
+            counterName + ".m4a",
             err => {
               if (err) {
                 cb(err);
               }
 
               convertToMp4('./parts');
-
+              
+              if (counter != null){
+                counter++;
+              }
+              
               cb(null, num + 1);
             }
           );
@@ -224,6 +239,24 @@ function convertToMp4(directory) {
             return;
           }
           log("🏁", `${outputFile} converted successfully`);
+          
+          if (delParts){
+            fs.unlink (videoFile, (err) => {
+              if (err) {
+                console.error(`Error deleting ${videoFile}: ${err}`);
+              } else {
+                console.log(`${videoFile} deleted successfully`);
+              }
+            })
+
+            fs.unlink (audioFile, (err) => {
+              if (err) {
+                console.error(`Error deleting ${audioFile}: ${err}`);
+              } else {
+                console.log(`${videoFile} deleted successfully`);
+              }
+            })
+          }
         });
       }
     });
